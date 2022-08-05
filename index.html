@@ -5,27 +5,52 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MOCR</title>
+    <style>
+        canvas, input{
+            display: block;
+        }
+    </style>
 </head>
 <body>
+    <h2>Original</h2>
     <canvas id="canvas"></canvas>
-    <br>
     <input type="file" id="file_input" />
-    <hr>
-    
-    <canvas id="canvas_output"></canvas>
+    <h2>Grayscale</h2>
+    <canvas id="canvas_grayscale"></canvas>
+    <h2>Black And White</h2>
+    <canvas id="canvas_blank_and_white"></canvas>
+    <h2>Horizontal Histogram</h2>
+    <canvas id="canvas_horizontal_histogram"></canvas>
 
 </body>
 
 <script>
     let canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
-    let canvas_output = document.getElementById("canvas_output");
-    const ctx_output = canvas.getContext("2d");
+
+    let canvas_grayscale = document.getElementById("canvas_grayscale");
+    const canvas_grayscale_ctx = canvas_grayscale.getContext("2d");
+
+    let canvas_blank_and_white = document.getElementById("canvas_blank_and_white");
+    const canvas_blank_and_white_ctx = canvas_blank_and_white.getContext("2d");
+
+    let canvas_horizontal_histogram = document.getElementById("canvas_horizontal_histogram");
+    const canvas_horizontal_histogram_ctx = canvas_horizontal_histogram.getContext("2d");
+
     let file_input = document.getElementById("file_input");
 
 
+    // one d array
+    var grey_scale_array = [];
+    // one d array
+    var black_and_white_array = [];
+
+    // one d array
+    var horizontal_histogram = {};
+
 
     
+    // read image
     function readImage() {
         if (!this.files || !this.files[0]) return;
         const FR = new FileReader();
@@ -36,16 +61,24 @@
             img.addEventListener("load", () => {
                 ctx.canvas.width = img.width;
                 ctx.canvas.height = img.height;
-                ctx_output.canvas.width = img.width;
-                ctx_output.canvas.height = img.height;
+
+                canvas_grayscale_ctx.canvas.width = img.width;
+                canvas_grayscale_ctx.canvas.height = img.height;
+
+                canvas_blank_and_white_ctx.canvas.width = img.width;
+                canvas_blank_and_white_ctx.canvas.height = img.height;
+
+                canvas_horizontal_histogram_ctx.canvas.width = img.width;
+                canvas_horizontal_histogram_ctx.canvas.height = img.height;
 
                 console.log("width is "+img.width + 'x' + img.height);
                 ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
                 ctx.drawImage(img, 0, 0);
-                console.log(ctx.canvas.width);
-                console.log(ctx.canvas.height);
+                //console.log(ctx.canvas.width);
+                //console.log(ctx.canvas.height);
                         
-                
+                console.log("getting grey scale array");
+                // getting grey scale array
                 for(let x=0; x < ctx.canvas.width; x++){
                     for(let y=0; y < ctx.canvas.height; y++){
                         // console.log(x,y);
@@ -62,56 +95,166 @@
                         grey_scale = r + g + b;
 
                     
+                        /*
                         if(grey_scale <= 0.0031308 ){
                             grey_scale = grey_scale * 12.92;
                         }
                         else{
                             grey_scale = grey_scale * 1.055;
                         }
+                        */
 
-                        console.log(grey_scale);
+                        // console.log(grey_scale);
+                        // add to grey scale array
+                        grey_scale_array[x*y] =  grey_scale;
+
                         
 
                         r = grey_scale;
                         g = grey_scale;
                         b = grey_scale;
-                        // console.log(imgd);
-                        //var pix = imgd.data;
-                        //imgd.data[0] = 126;
-                        //imgd.data[0] = 255;
-                        //imgd.data[1] = 255;
-                        //imgd.data[2] = 255;
-                        //imgd.data[3] = 0;
-                        // console.log(pix);
-                        // console.log(pix[0]);
-                        // console.log(pix[1]);
-                        // console.log(pix[2]);
-                        // console.log(pix[3]);
-                        // create one pixel image
-                        //var id = ctx.createImageData(1,1); // only do this once per page
-                        //var d  = id.data;                        // only do this once per page
-                        //d[0]   = 125;
-                        //d[1]   = 255;
-                        //d[2]   = 255;
-                        // d[3]   = 0;
-                        // ctx.putImageData( imgd, y, x );    
-                        var r_a = 1; 
-                        ctx.fillStyle = "rgba("+r+", "+g+", "+b+", " + r_a + ")"; 
-                        //ctx.fillStyle = "srgb(126,255,0,0)";
-                        ctx.fillRect( x, y, 1, 1 );
+                        canvas_grayscale_ctx.fillStyle = "rgba("+r+", "+g+", "+b+", " + r_a + ")";
+                        canvas_grayscale_ctx.fillRect( x, y, 1, 1 );
+
+                        // TODO: find threshould number using Otsu's method
+                        r_bw = grey_scale > 126 ? 0 : 255;
+                        g_bw = r_bw;
+                        b_bw = r_bw;   
+                        var r_a = 1;
+
+                        black_and_white_array.push(r_bw);
+
+                        canvas_blank_and_white_ctx.fillStyle = "rgba("+r_bw+", "+r_bw+", "+r_bw+", " + r_a + ")"; 
+                        canvas_blank_and_white_ctx.fillRect( x, y, 1, 1 );
+                        
+                        //canvas_horizontal_histogram_ctx.fillStyle = "rgba("+r_bw+", "+r_bw+", "+r_bw+", " + r_a + ")"; 
+                        //canvas_horizontal_histogram_ctx.fillRect( x, y, 1, 1 );
+
+                        
+                        canvas_horizontal_histogram_ctx.fillStyle = "rgba("+255+", "+0+", "+0+", " + r_a + ")"; 
+                        canvas_horizontal_histogram_ctx.fillRect( x, y, 1, 1 );
+
+
+
                     }
                 }
+                console.log("grey scale completed");
+                // find threshold
+                console.log("finding otsu threshold...");
+                let otsu_threshold = otsuThreshold(0,255,grey_scale_array);
+                console.log("threshold is "+otsu_threshold);
+
+                // making black and white image based on threshold value
+                
+                // find histogram
+                // horizontal_histogram = findHorizontalHistogram(canvas_blank_and_white_ctx.canvas.width, canvas_blank_and_white_ctx.canvas.height, black_and_white_array);
+                horizontal_histogram = _findHistogram(canvas_blank_and_white_ctx.canvas.width, canvas_blank_and_white_ctx.canvas.height, black_and_white_array);
+                console.log("Calculated horizontal histogram is ");
+                console.log(horizontal_histogram);
+                console.log(canvas_horizontal_histogram_ctx.canvas.height);
+                console.log(canvas_horizontal_histogram_ctx.canvas.width);
+                // making horizontal histogram
+                // number of rows
+                for(let y=0; y < canvas_horizontal_histogram_ctx.canvas.height; y++){
+                    let number_of_pixel = ( horizontal_histogram[y] > 10  ) ? horizontal_histogram[y] : 0;
+                    for(let x=0; x < number_of_pixel; x++){
+                        // console.log("for pixed ",x+","+y);
+                        r_bw = 125;
+                        g_bw = r_bw;
+                        b_bw = r_bw;   
+                        var r_a = 1;
+                        canvas_horizontal_histogram_ctx.fillStyle = "rgba("+r_bw+", "+r_bw+", "+r_bw+", " + r_a + ")"; 
+                        canvas_horizontal_histogram_ctx.fillRect( x, y, 1, 1 );
+                    }
+                }
+                
+                
             });
             img.src = evt.target.result;
         });
         FR.readAsDataURL(this.files[0]);
+    }
+    function getPixelValue(x,y){
+        var imgd = context.getImageData(x, y, width, height);
+        var pix = imgd.data;
+    }
+
+    function otsuThreshold(min, max, data_array){
+        return 126;
+    }
+
+    /*
+        @input canvas_height and black_and_white array for the whole canvas
+        @output histogram of canvas height and it's balck black value
+    */
+    function findHorizontalHistogram(canvas_width,canvas_height, data_array){
+        console.log("findHorizontalHistogram");
+        console.log(canvas_width);
+        console.log(canvas_height);
+        let histogram = {};
+        // setting all occurance to zero
+        console.log("loop started");
+        for(x=0; x < canvas_height; x++){
+            histogram[x] = 0;
+            console.log("for x "+x+" "+histogram[x]);
+        }
+        console.log("loop end");
+    
+
+        // increase each occurance
+
+        for(x=0; x < canvas_width; x++){
+            for(y=0; y<canvas_height; y++){
+                console.log("x,y is "+x+" , "+y);
+                let pixel = data_array[x*y]; // 0 - 1
+                console.log(pixel);
+                if(pixel == 255){
+                    // increase histogram value for this row
+                    histogram[y]++;
+                }
+            }
+        }
+        return histogram;
 
 
     }
 
-    function getPixelValue(x,y){
-        var imgd = context.getImageData(x, y, width, height);
-        var pix = imgd.data;
+    function _findHistogram(w, h, data_array){
+        console.log("_findHistogram ");
+        console.log(data_array);
+        let histogram = {};
+        // setting all occurance to zero
+        
+        c = 0;
+        /* work for word separation */
+        /*
+        for(x=0; x < h; x++){
+            histogram[x] = 0;
+            for(y=0; y < w; y++){
+                if(data_array[c] == 255){
+                    histogram[x]++;
+                }
+                c++;
+            }
+        }
+        */
+
+        
+        current_h = 0;
+
+        for(x=0; x < h; x++){
+            histogram[x] = 0;
+        }
+        for(x=0; x < w; x++){
+            for(y=0; y < h; y++){
+                if(data_array[c] == 255){
+                    histogram[y]++;
+                }
+                c++;
+            }
+        }
+
+        return histogram;
     }
     
 
